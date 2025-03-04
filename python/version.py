@@ -57,6 +57,18 @@ def download_new_version():
         print("✅ New version downloaded successfully!")
     else:
         print("❌ Error downloading a new .exe file!")
+    
+    if not os.path.exists(LOCAL_VERSION_FILE):
+        print("❌ version.txt not found! Fetching version from the server...")
+        server_version = get_server_version()
+        if server_version:
+            with open(LOCAL_VERSION_FILE, 'w') as f:
+                f.write(server_version)  # Zapisujemy wersję z serwera
+            print(f"✅ version.txt created with version: {server_version}")
+        else:
+            print("❌ Could not fetch version from server!")
+            return
+        run_exe()
 
 def run_exe():
     try:
@@ -66,17 +78,18 @@ def run_exe():
         print(e)
 
 def check_for_update():
+    server_version = get_server_version()
+    if not os.path.exists(LOCAL_VERSION_FILE):
+        download_new_version()
+        return
+
     if not os.path.exists(LOCAL_EXE_FILE):
-        print("❌ Exe file not found! 💾 Downloading Latest version...")
         download_new_version()
         return
     
-    local_version = "0.0.0"
-    if os.path.exists(LOCAL_VERSION_FILE):
-        with open(LOCAL_VERSION_FILE, 'r') as f:
-            local_version = f.read().strip()
-    
-    server_version = get_server_version()
+    with open(LOCAL_VERSION_FILE, 'r') as f:
+        local_version = f.read().strip()
+
     if server_version and server_version > local_version:
         print(f"🚀 New version available! Local: {local_version}, Server: {server_version}")
         download_new_version()
