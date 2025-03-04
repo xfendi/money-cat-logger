@@ -63,10 +63,11 @@ def download_new_version():
 
 def run_exe():
     try:
-        subprocess.Popen([LOCAL_EXE_FILE])
+        process = subprocess.Popen([LOCAL_EXE_FILE], shell=True)
         print("✅ Program started!")
+        process.wait()  # Czekamy na zakończenie procesu EXE
     except Exception as e:
-        print(e)
+        print(f"❌ Error running the EXE: {e}")
 
 def check_for_update():
     server_version = get_server_version()
