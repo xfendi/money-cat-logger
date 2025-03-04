@@ -2,7 +2,8 @@
 setlocal
 color 3
 
-set "DISK_LETTER=Y"
+echo Type .exe file disk letter (e.g. Y):
+set /p DISK_LETTER=
 
 set "PYTHON_FILE_PATH=%DISK_LETTER%:\logger\python\version.py"
 set "OUTPUT_DIR=%DISK_LETTER%:\logger\builds"

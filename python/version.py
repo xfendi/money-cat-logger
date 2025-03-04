@@ -51,10 +51,8 @@ def download_new_version():
     
     print("💾 Downloading new version...")
     response = requests.get(download_url, stream=True)
-    print(f"Status Code: {response.status_code}")
     if response.status_code == 200:
         with open(LOCAL_EXE_FILE, 'wb') as file:
-            print("Started copying new version")
             shutil.copyfileobj(response.raw, file)
         print("✅ New version downloaded successfully!")
     else:
@@ -83,9 +81,9 @@ def check_for_update():
         print(f"🚀 New version available! Local: {local_version}, Server: {server_version}")
         download_new_version()
         with open(LOCAL_VERSION_FILE, 'w') as f:
-            f.write(server_version)
+            f.write(server_version)  # Zapisujemy nową wersję do pliku version.txt
     else:
-        print("✅ You have letest version!")
+        print("✅ You have the latest version!")
 
     # Po pobraniu najnowszej wersji uruchamiamy plik
     run_exe()

