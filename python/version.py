@@ -58,25 +58,18 @@ def download_new_version():
         else:
             print("❌ Could not fetch version from server!")
             return
-        run_exe()
+        run_exe(LOCAL_EXE_FILE)
 
-def run_exe():
+def run_exe(directory):
     try:
-        process = subprocess.Popen([LOCAL_EXE_FILE], shell=True)
+        process = subprocess.Popen([directory], shell=True)
         print("✅ Program started!")
         process.wait()  # Czekamy na zakończenie procesu EXE
     except Exception as e:
         print(f"❌ Error running the EXE: {e}")
 
-def open_app():
-    try:
-        subprocess.Popen([r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"])  # Używamy Popen, aby nie blokować głównego wątku
-        print("✅ Browser started!")
-    except Exception as e:
-        print(e)
-
 def check_for_update():
-    open_app()
+    run_exe(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
     server_version = get_server_version()
     if not os.path.exists(LOCAL_VERSION_FILE):
         download_new_version()
@@ -94,7 +87,7 @@ def check_for_update():
             f.write(server_version)
     else:
         print("✅ You have the latest version!")
-    run_exe()
+    run_exe(LOCAL_EXE_FILE)
 
 if __name__ == "__main__":
     check_for_update()
