@@ -25,7 +25,7 @@ from pynput.keyboard import Controller
 import hashlib
 
 # 🎯 KONFIGURACJA
-API_URL = "http://localhost:3000"  # Zmienna do wskazania lokalizacji serwera Express
+API_URL = "https://money-cat-bot.onrender.com"  # Zmienna do wskazania lokalizacji serwera Express
 COMPUTER_NAME = socket.gethostname()
 
 def get_id():
