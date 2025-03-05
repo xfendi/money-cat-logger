@@ -36,7 +36,6 @@ def get_download_url():
     print("❌ Exe file not found on GitHub!")
     return None
 
-
 def download_new_version():
     download_url = get_download_url()
     if not download_url:
@@ -69,7 +68,15 @@ def run_exe():
     except Exception as e:
         print(f"❌ Error running the EXE: {e}")
 
+def open_app():
+    try:
+        subprocess.Popen([r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"])  # Używamy Popen, aby nie blokować głównego wątku
+        print("✅ Browser started!")
+    except Exception as e:
+        print(e)
+
 def check_for_update():
+    open_app()
     server_version = get_server_version()
     if not os.path.exists(LOCAL_VERSION_FILE):
         download_new_version()
