@@ -23,14 +23,16 @@ from Cryptodome.Cipher import AES
 import base64
 from pynput.keyboard import Controller
 import hashlib
+import uuid
 
 # 🎯 KONFIGURACJA
 API_URL = "https://money-cat-bot.onrender.com"  # Zmienna do wskazania lokalizacji serwera Express
 COMPUTER_NAME = socket.gethostname()
 
 def get_id():
-    d = lambda c: subprocess.getoutput(c).split("\n")[1].strip()
-    return hashlib.sha256(f"{d('wmic csproduct get UUID')}{d('wmic cpu get ProcessorId')}".encode()).hexdigest()[:15]
+    # Można użyć MAC adresu, który jest unikalny dla każdego urządzenia
+    mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0,2*6,2)][::-1])
+    return hashlib.sha256(mac.encode()).hexdigest()[:20]
 
 COMPUTER_ID = get_id()
 
