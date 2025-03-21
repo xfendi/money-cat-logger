@@ -61,8 +61,30 @@ def watch_changes():
         type = data.get("type")
 
         if name == COMPUTER_ID:
+            print("sddgdfg")
             send_to_express(f"`✅` Successfully received `{type}` request!", COMPUTER_ID)
             match type and type.strip().lower():
+                case "winr":
+                    args = data.get("args", {})
+                    content = args.get("content")
+                    pyautogui.hotkey('win', 'r')
+                    if content:
+                        pyautogui.write(content)
+                        pyautogui.press("enter")
+                    send_to_express("`🔧` Successfully opened Windows + R!", COMPUTER_ID)
+                        
+                case "note":
+                    args = data.get("args", {})
+                    content = args.get("content")
+                    if content:
+                        with open("temp_note.txt", "w") as f:
+                            f.write(content)
+                        subprocess.Popen(["notepad", "temp_note.txt"])
+                        send_to_express(f"`📝` Successfully opened Notepad with content!", COMPUTER_ID)
+                    else:
+                        subprocess.Popen("notepad")
+                        send_to_express("`📝` Successfully opened Notepad!", COMPUTER_ID)
+                        
                 case "cmd":
                     args = data.get("args", {})
                     content = args.get("content")
