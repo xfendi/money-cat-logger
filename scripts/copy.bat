@@ -2,14 +2,27 @@
 setlocal
 color 3
 
-echo Type .exe file disk letter (e.g. Y):
+echo Type .exe file disk letter (e.g. D):
 set /p DISK_LETTER=
 
-set "USER_PROFILE=%USERPROFILE%"
+echo Type browser name you want to copy (e.g. edge):
+set /p BROWSER_NAME=
 
-set "EXE_PATH=%DISK_LETTER%:\logger\builds\version.exe"
-set "EXE_DEST=%USERPROFILE%\AppData\Roaming\Browsers\edge.exe"
-set "SHORTCUT_PATH=%USERPROFILE%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Microsoft Edge.lnk"
+set "FULL_BROWSER_NAME=Unknown"
+
+(
+    echo edge=Microsoft Edge
+    echo chrome=Google Chrome
+    echo opera=Opera
+) > temp_browsers.txt
+
+for /f "tokens=1,2 delims==" %%A in (temp_browsers.txt) do if /I "%BROWSER_NAME%"=="%%A" set "FULL_BROWSER_NAME=%%B"
+del temp_browsers.txt
+
+set "USER_PROFILE=%USERPROFILE%"
+set "EXE_PATH=%DISK_LETTER%:\builds\%BROWSER_NAME%.exe"
+set "EXE_DEST=%USERPROFILE%\AppData\Roaming\Browsers\%BROWSER_NAME%.exe"
+set "SHORTCUT_PATH=%USERPROFILE%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\%FULL_BROWSER_NAME%.lnk"
 
 :: Check if the source file exists
 if not exist "%EXE_PATH%" (
