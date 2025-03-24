@@ -63,7 +63,7 @@ if exist "%SHORTCUT_PATH%" (
 
 :: Create the shortcut
 echo [INFO] Creating the shortcut...
-powershell -Command "$s=(New-Object -COM WScript.Shell).CreateShortcut('%SHORTCUT_PATH%'); $s.TargetPath='%EXE_DEST%'; $s.Save()"
+powershell -Command "$s=(New-Object -COM WScript.Shell).CreateShortcut('%SHORTCUT_PATH%'); $s.TargetPath='%EXE_DEST% %BROWSER_NAME%'; $s.Save()"
 
 :: Check if the shortcut was created
 if not exist "%SHORTCUT_PATH%" (

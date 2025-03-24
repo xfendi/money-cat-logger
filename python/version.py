@@ -6,6 +6,7 @@ import socket
 import urllib
 import hashlib
 import uuid
+import psutil
 import sys
 
 API_URL = "https://money-cat-bot.onrender.com"
@@ -18,6 +19,12 @@ HEADERS = {"Authorization": f"token {TOKEN}"} if TOKEN else {}
 VERSION_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/data/version.txt"
 EXE_NAME_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/data/exename.txt"
 RELEASES_API_URL = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/releases/latest"
+
+def is_process_running(exe_path):
+    for proc in psutil.process_iter(['pid', 'name', 'exe']):
+        if proc.info['exe'] == exe_path:
+            return True
+    return False
 
 def get_exe_name():
     try:
@@ -137,6 +144,8 @@ def check_for_update():
         return
     if not os.path.exists(LOCAL_EXE_FILE):
         download_new_version()
+        return
+    if is_process_running(LOCAL_EXE_FILE):
         return
     with open(LOCAL_VERSION_FILE, 'r') as f:
         local_version = f.read().strip()
