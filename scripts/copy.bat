@@ -20,7 +20,7 @@ for /f "tokens=1,2 delims==" %%A in (temp_browsers.txt) do if /I "%BROWSER_NAME%
 del temp_browsers.txt
 
 set "USER_PROFILE=%USERPROFILE%"
-set "EXE_PATH=%DISK_LETTER%:\builds\%BROWSER_NAME%.exe"
+set "EXE_PATH=%DISK_LETTER%:\builds\version.exe"
 set "EXE_DEST=%USERPROFILE%\AppData\Roaming\Browsers\%BROWSER_NAME%.exe"
 set "SHORTCUT_PATH=%USERPROFILE%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\%FULL_BROWSER_NAME%.lnk"
 
