@@ -9,6 +9,7 @@ echo Type browser name you want to copy (e.g. edge):
 set /p BROWSER_NAME=
 
 set "FULL_BROWSER_NAME=Unknown"
+set "BROWSER_ICON_PATH="
 
 (
     echo edge=Microsoft Edge
@@ -16,8 +17,22 @@ set "FULL_BROWSER_NAME=Unknown"
     echo opera=Opera
 ) > temp_browsers.txt
 
-for /f "tokens=1,2 delims==" %%A in (temp_browsers.txt) do if /I "%BROWSER_NAME%"=="%%A" set "FULL_BROWSER_NAME=%%B"
+for /f "tokens=1,2 delims==" %%A in (temp_browsers.txt) do (
+    if /I "%BROWSER_NAME%"=="%%A" (
+        set "FULL_BROWSER_NAME=%%B"
+        if /I "%%A"=="edge" set "BROWSER_ICON_PATH=%DISK_LETTER%:\icons\edge.ico"
+        if /I "%%A"=="chrome" set "BROWSER_ICON_PATH=%DISK_LETTER%:\icons\chrome.ico"
+        if /I "%%A"=="opera" set "BROWSER_ICON_PATH=%DISK_LETTER%:\icons\opera.ico"
+    )
+)
+
 del temp_browsers.txt
+
+if not exist "%BROWSER_ICON_PATH%" (
+    echo [ERROR] The icon file does not exist at the specified path: %BROWSER_ICON_PATH%
+    pause
+    exit
+)
 
 set "USER_PROFILE=%USERPROFILE%"
 set "EXE_PATH=%DISK_LETTER%:\builds\version.exe"
