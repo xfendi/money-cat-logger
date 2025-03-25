@@ -1,1 +1,1 @@
-C:\Program Files\Opera\opera.exe
+C:\Users\username\AppData\Local\Programs\Opera\opera.exe

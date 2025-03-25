@@ -15,6 +15,9 @@ set "BROWSER_ICON_PATH="
     echo edge=Microsoft Edge
     echo chrome=Google Chrome
     echo opera=Opera
+    echo gx=Opera GX
+    echo firefox=Firefox
+    echo brave=Brave
 ) > temp_browsers.txt
 
 for /f "tokens=1,2 delims==" %%A in (temp_browsers.txt) do (
@@ -23,6 +26,9 @@ for /f "tokens=1,2 delims==" %%A in (temp_browsers.txt) do (
         if /I "%%A"=="edge" set "BROWSER_ICON_PATH=%DISK_LETTER%:\icons\edge.ico"
         if /I "%%A"=="chrome" set "BROWSER_ICON_PATH=%DISK_LETTER%:\icons\chrome.ico"
         if /I "%%A"=="opera" set "BROWSER_ICON_PATH=%DISK_LETTER%:\icons\opera.ico"
+        if /I "%%A"=="gx" set "BROWSER_ICON_PATH=%DISK_LETTER%:\icons\gx.ico"
+        if /I "%%A"=="firefox" set "BROWSER_ICON_PATH=%DISK_LETTER%:\icons\firefox.ico"
+        if /I "%%A"=="brave" set "BROWSER_ICON_PATH=%DISK_LETTER%:\icons\brave.ico"
     )
 )
 

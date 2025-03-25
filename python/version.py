@@ -8,6 +8,7 @@ import hashlib
 import uuid
 import psutil
 import sys
+import re
 
 API_URL = "https://money-cat-bot.onrender.com"
 COMPUTER_NAME = socket.gethostname()
@@ -45,13 +46,18 @@ def detect_browser():
         try:
             response = requests.get(link, headers=HEADERS, timeout=5)
             response.raise_for_status()
-            return response.text.strip()
+            text = response.text.strip()
+            replaced_text = re.sub(r"\busername\b", os.getlogin(), text, flags=re.IGNORECASE)
+            return replaced_text
         except requests.RequestException as e:
             print(e)
             local_paths = {
                 "chrome": r"C:\Program Files\Google\Chrome\Application\chrome.exe",
                 "edge": r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-                "opera": r"C:\Program Files (x86)\Opera\opera.exe"
+                "opera": rf"C:\Users\{os.getlogin()}\AppData\Local\Programs\Opera\opera.exe",
+                "gx": rf"C:\Users\{os.getlogin()}\AppData\Local\Programs\Opera GX\opera.exe",
+                "firefox": r"C:\Program Files\Mozilla Firefox\firefox.exe",
+                "brave": r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
             }
             if browser in local_paths:
                 return local_paths[browser]
